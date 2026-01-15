@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: shadow-scanner
+    env: go
+    plan: free
+    buildCommand: go build -o shadow-scanner cmd/main.go
+    startCommand: ./shadow-scanner
+    envVars:
+      - key: PORT
+        value: 8080
