@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os" // Muhit o'zgaruvchilari bilan ishlash uchun
 	"shadow-scanner/internal/models"
 	"shadow-scanner/internal/scanner"
 	"shadow-scanner/internal/ws"
@@ -45,19 +46,16 @@ func main() {
 		lastResults = []models.ScanResult{}
 		resultsMu.Unlock()
 
-		// Skanerlash jarayonini alohida goroutinada boshlaymiz
 		go func() {
 			ports := make(chan int, 100)
 			results := make(chan models.ScanResult)
 			pool := scanner.Pool{WorkerCount: 100, Timeout: 500 * time.Millisecond}
 
-			// Worker Poolni ishga tushirish
 			go func() {
 				pool.Start(target, ports, results)
 				close(results)
 			}()
 
-			// Portlarni kanalga yuborish (1-1024)
 			go func() {
 				for i := 1; i <= 1024; i++ {
 					ports <- i
@@ -65,22 +63,17 @@ func main() {
 				close(ports)
 			}()
 
-			// Natijalarni yig'ish va WebSocket orqali uzatish
 			for res := range results {
 				if res.State == "Open" {
 					resultsMu.Lock()
 					lastResults = append(lastResults, res)
 					resultsMu.Unlock()
-
-					hub.Broadcast(res) // Frontendga Live yuborish
+					hub.Broadcast(res)
 				}
 			}
 
-			// Skanerlash tugagach PDF yaratish
 			fmt.Printf("Skanerlash tugadi: %s. Hisobot tayyorlanmoqda...\n", target)
 			scanner.GeneratePDFReport(lastTarget, lastResults)
-
-			// Jarayon tugaganini bildirish uchun maxsus xabar
 			hub.Broadcast(map[string]string{"status": "completed"})
 		}()
 
@@ -88,6 +81,17 @@ func main() {
 		fmt.Fprint(w, "Scan started")
 	})
 
-	fmt.Println("🚀 ShadowScanner Dashboard: http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+	// Render portini olish
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Lokal muhit uchun default port
+	}
+
+	fmt.Printf("🚀 ShadowScanner Dashboard ishga tushdi: http://localhost:%s\n", port)
+	
+	// Serverni ishga tushirish
+	err := http.ListenAndServe(":"+port, nil)
+	if err != nil {
+		fmt.Printf("Xatolik yuz berdi: %v\n", err)
+	}
 }
