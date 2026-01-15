@@ -73,7 +73,8 @@
     </div>
 
     <script>
-        const socket = new WebSocket("ws://" + window.location.host + "/ws");
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
         const resultsBody = document.getElementById("resultsBody");
         const emptyState = document.getElementById("emptyState");
         const statusBadge = document.getElementById("statusBadge");
